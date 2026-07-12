@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sofle Encoder Configurator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="page">
+        <header>
+            <h1>Sofle Encoder Configurator</h1>
+            <p>Change what the rotary knob does — clockwise, counter-clockwise, and tap.</p>
+        </header>
+
+        <div class="top-bar">
+            <div id="status" data-kind="info">Connect your Sofle keyboard via USB</div>
+            <button id="connect-btn" class="btn-primary" type="button">Connect keyboard</button>
+            <button id="disconnect-btn" class="btn-secondary" type="button" hidden>Disconnect</button>
+        </div>
+
+        <div id="toolbar" hidden>
+            <button id="save-btn" class="btn-primary" type="button">Save to keyboard</button>
+            <button id="reload-btn" class="btn-secondary" type="button">Reload from keyboard</button>
+            <button id="reset-btn" class="btn-danger" type="button">Reset defaults</button>
+        </div>
+
+        <div id="actions" class="action-grid" hidden></div>
+
+        <aside class="note">
+            <strong>Requirements</strong>
+            <ul>
+                <li>Flash the <code>webconfig</code> firmware (see README) before using this page.</li>
+                <li>Use <strong>Chrome</strong> or <strong>Edge</strong> — WebHID is required.</li>
+                <li>Settings are stored in the keyboard's EEPROM and survive unplugging / rebooting.</li>
+                <li>Default actions: <em>Volume Down</em> (CW), <em>Volume Up</em> (CCW), <em>Mute</em> (tap).</li>
+            </ul>
+        </aside>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
