@@ -31,6 +31,7 @@ typedef struct {
 static encoder_config_t encoder_config;
 
 // Raw HID protocol (32-byte reports, usage page 0xFF60 / usage 0x61)
+#define RAW_REPORT_SIZE    32
 #define HID_CMD_GET_CONFIG 0x01
 #define HID_CMD_SET_CONFIG 0x02
 #define HID_CMD_RESET      0x03
@@ -130,7 +131,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 // ---------------------------------------------------------------------------
 
 void raw_hid_receive(uint8_t *data, uint8_t length) {
-    uint8_t response[RAW_EPSIZE];
+    uint8_t response[RAW_REPORT_SIZE];
     memset(response, 0, sizeof(response));
 
     if (length < 1) {
