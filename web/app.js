@@ -1,4 +1,4 @@
-import { MOD, MOD_LABELS, KEY_GROUPS, decodeKeycode, encodeKeycode, formatKeycode } from './keycodes.js';
+import { MOD, MOD_LABELS, KEY_GROUPS, decodeKeycode, encodeKeycode, formatKeycode } from './keycodes.js?v=2';
 
 // Raw HID protocol — must match firmware/webconfig/keymap.c
 const HID_CMD_GET_CONFIG = 0x01;
@@ -22,6 +22,28 @@ let device = null;
 // ---------------------------------------------------------------------------
 
 const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// On-screen debug log (built-in browsers may not expose devtools)
+// ---------------------------------------------------------------------------
+
+function logDebug(msg, kind = 'info') {
+    const el = document.getElementById('debug-log');
+    if (!el) {
+        return;
+    }
+    const time = new Date().toLocaleTimeString();
+    const prefix = kind === 'error' ? '[ERR]' : kind === 'ok' ? '[OK ]' : '[   ]';
+    el.textContent += `${time} ${prefix} ${msg}\n`;
+    el.scrollTop = el.scrollHeight;
+}
+
+window.addEventListener('error', (e) => {
+    logDebug(`Uncaught: ${e.message} @ ${e.filename}:${e.lineno}`, 'error');
+});
+window.addEventListener('unhandledrejection', (e) => {
+    logDebug(`Promise rejected: ${e.reason?.message ?? e.reason}`, 'error');
+});
 
 function setStatus(text, kind = 'info') {
     const el = $('status');
@@ -126,6 +148,11 @@ async function sendCommand(command, payload = []) {
         data[i + 1] = payload[i];
     }
 
+    const sentHex = Array.from(data.slice(0, 10))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join(' ');
+    logDebug(`send cmd=0x${command.toString(16)} bytes=[${sentHex} ...]`);
+
     await device.sendReport(0, data);
 
     return new Promise((resolve, reject) => {
@@ -135,16 +162,30 @@ async function sendCommand(command, payload = []) {
         }, 3000);
 
         function onReport(event) {
-            const buf = new Uint8Array(event.data.buffer);
+            const buf = new Uint8Array(
+                event.data.buffer,
+                event.data.byteOffset,
+                event.data.byteLength
+            );
+
+            const hex = Array.from(buf.slice(0, 10))
+                .map((b) => b.toString(16).padStart(2, '0'))
+                .join(' ');
+            logDebug(`inputreport id=${event.reportId} len=${buf.length} bytes=[${hex} ...]`);
+
+            // Ignore reports that are not our protocol responses. Once the
+            // device is open, inputreport fires for every collection (e.g. the
+            // keyboard's own key reports), so filter to OK / ERR replies.
+            if (buf[0] !== HID_RSP_OK && buf[0] !== HID_RSP_ERR) {
+                logDebug('  ignored (not a config response)');
+                return;
+            }
+
             clearTimeout(timeout);
             device.removeEventListener('inputreport', onReport);
 
             if (buf[0] === HID_RSP_ERR) {
                 reject(new Error('Keyboard returned an error'));
-                return;
-            }
-            if (buf[0] !== HID_RSP_OK) {
-                reject(new Error(`Unexpected response 0x${buf[0].toString(16)}`));
                 return;
             }
             resolve(buf);
@@ -155,8 +196,11 @@ async function sendCommand(command, payload = []) {
 }
 
 async function connect() {
+    logDebug('Connect clicked');
+
     if (!('hid' in navigator)) {
         setStatus('WebHID is not available. Use Chrome or Edge on desktop.', 'error');
+        logDebug('navigator.hid is undefined — this browser has no WebHID support', 'error');
         return;
     }
 
@@ -166,11 +210,22 @@ async function connect() {
             productId: pid,
         }));
 
+        logDebug('Calling navigator.hid.requestDevice()...');
         const picked = await navigator.hid.requestDevice({ filters });
+        logDebug(`Picker returned ${picked.length} device(s)`);
+
+        for (const d of picked) {
+            const usages = d.collections
+                .map((c) => `${(c.usagePage ?? 0).toString(16)}:${(c.usage ?? 0).toString(16)}`)
+                .join(', ');
+            logDebug(`  - ${d.productName} VID=${d.vendorId.toString(16)} PID=${d.productId.toString(16)} usages=[${usages}]`);
+        }
+
         const match = picked.find(isSofleRawHidDevice);
 
         if (!match) {
             setStatus('No Sofle Raw HID interface found. Flash the webconfig firmware first.', 'error');
+            logDebug('No collection matched usagePage 0xFF60 / usage 0x61', 'error');
             return;
         }
 
@@ -188,10 +243,14 @@ async function connect() {
         $('toolbar').hidden = false;
 
         setStatus(`Connected to ${device.productName || 'Sofle'}`, 'ok');
+        logDebug(`Opened device: ${device.productName}`, 'ok');
         await loadConfig();
     } catch (err) {
-        if (err.name !== 'NotFoundError') {
+        if (err.name === 'NotFoundError') {
+            logDebug('Device picker cancelled or no device selected');
+        } else {
             setStatus(`Connection failed: ${err.message}`, 'error');
+            logDebug(`Connection failed: ${err.name}: ${err.message}`, 'error');
         }
     }
 }
@@ -235,7 +294,11 @@ async function saveConfig() {
     const ccw = readAction('ccw');
     const tap = readAction('tap');
 
+    // The firmware reads the config starting at report byte index 2 (byte 1 is
+    // reserved). sendCommand() places the command at index 0 and the payload
+    // starting at index 1, so prepend one padding byte to align the values.
     const payload = [
+        0x00,
         cw & 0xff, (cw >> 8) & 0xff,
         ccw & 0xff, (ccw >> 8) & 0xff,
         tap & 0xff, (tap >> 8) & 0xff,
@@ -259,7 +322,7 @@ async function resetDefaults() {
 // ---------------------------------------------------------------------------
 
 function init() {
-    const grid = $('action-grid');
+    const grid = $('actions');
     grid.appendChild(buildActionEditor('cw',  'Clockwise',        'Turn the knob to the right'));
     grid.appendChild(buildActionEditor('ccw', 'Counter-clockwise','Turn the knob to the left'));
     grid.appendChild(buildActionEditor('tap', 'Knob tap',         'Press the encoder button'));
@@ -273,6 +336,13 @@ function init() {
 
     $('connect-btn').addEventListener('click', connect);
     $('disconnect-btn').addEventListener('click', disconnect);
+    $('debug-clear').addEventListener('click', () => {
+        $('debug-log').textContent = '';
+    });
+
+    logDebug(`App loaded. Secure context: ${window.isSecureContext}`);
+    logDebug(`WebHID available: ${'hid' in navigator}`, 'hid' in navigator ? 'ok' : 'error');
+    logDebug(`UA: ${navigator.userAgent}`);
     $('save-btn').addEventListener('click', () => saveConfig().catch((e) => setStatus(e.message, 'error')));
     $('reload-btn').addEventListener('click', () => loadConfig().catch((e) => setStatus(e.message, 'error')));
     $('reset-btn').addEventListener('click', () => resetDefaults().catch((e) => setStatus(e.message, 'error')));

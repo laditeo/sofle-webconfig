@@ -1,0 +1,6 @@
+# Downloaded firmware artifacts
+build/
+
+# Editor/OS noise
+.DS_Store
+Thumbs.db
