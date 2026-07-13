@@ -21,4 +21,5 @@
 // stale cache made consumer (volume) reports get misinterpreted as mouse events
 // in some windows. Changing the release number makes Windows treat this as a new
 // device and re-read the current, correct descriptor.
+#undef DEVICE_VER
 #define DEVICE_VER 0x0002
