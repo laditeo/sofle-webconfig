@@ -14,3 +14,11 @@
 
 // Give consumer/media taps (volume, play/pause, ...) a moment to register.
 #define TAP_CODE_DELAY 10
+
+// Bump the USB device release number (bcdDevice). We flashed several different
+// HID descriptors (mouse on/off, NKRO on/off) under the same VID/PID/version,
+// and Windows caches the HID report descriptor keyed by VID/PID/bcdDevice. That
+// stale cache made consumer (volume) reports get misinterpreted as mouse events
+// in some windows. Changing the release number makes Windows treat this as a new
+// device and re-read the current, correct descriptor.
+#define DEVICE_VER 0x0002
