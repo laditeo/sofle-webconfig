@@ -1,30 +1,26 @@
-# Sofle Encoder Web Configurator
+# Sofle VIA Keymap
 
-Configure what the **rotary knob** on a [SofleKeyboard](https://github.com/josefadamcik/SofleKeyboard)
-does — clockwise, counter-clockwise, and knob tap — from a web page, without
-recompiling every time.
+A QMK keymap for the [SofleKeyboard](https://github.com/josefadamcik/SofleKeyboard)
+with **VIA support** — every key, plus the rotary knob (clockwise,
+counter-clockwise, tap), is remappable live in [usevia.app](https://usevia.app),
+no recompiling.
 
-| Action | Default |
-|--------|---------|
-| Clockwise rotation | Volume Down |
-| Counter-clockwise rotation | Volume Up |
+| Knob action | Default |
+|-------------|---------|
+| Clockwise rotation | Brightness Up |
+| Counter-clockwise rotation | Brightness Down |
 | Knob tap (press) | Mute |
 
+The layout is a single layer (transcribed from the user's VIA setup, left half).
 Settings are stored in the keyboard's **EEPROM** and persist across reboots.
 
 ## How it works
 
-- **Firmware** — a QMK keymap (`keyboards/sofle/rev1/keymaps/webconfig/`) that
-  stores three keycodes in EEPROM and exposes them over **Raw HID** (WebHID).
-- **Web app** (`web/`) — a local page that talks to the keyboard over USB.
+- **Firmware** — a QMK keymap (`keyboards/sofle/rev1/keymaps/webconfig/`) built
+  with `VIA_ENABLE` + `ENCODER_MAP_ENABLE`, so it speaks the VIA protocol over
+  Raw HID and exposes the encoder to VIA.
 - **Cloud build** — this repo is a [QMK external userspace](https://docs.qmk.fm/newbs_external_userspace).
-  GitHub Actions compiles the firmware for you, so nothing heavy is installed locally.
-
-```
-Browser (Chrome/Edge)  --WebHID-->  Sofle (Raw HID)  -->  EEPROM
-                                              |
-                                    encoder rotation / tap
-```
+  GitHub Actions compiles the firmware, so nothing heavy is installed locally.
 
 ## Board
 
@@ -32,22 +28,12 @@ This keymap targets **Sofle rev1** (Pro Micro, `VID 0xFC32 / PID 0x0287`).
 
 ## Building in the cloud (no local toolchain)
 
-1. Create a new repository on GitHub (e.g. `sofle-webconfig`).
-2. Push this folder to it:
-   ```bash
-   git init
-   git add .
-   git commit -m "Sofle encoder web configurator"
-   git branch -M main
-   git remote add origin https://github.com/<you>/sofle-webconfig.git
-   git push -u origin main
-   ```
-3. Open the repo on GitHub → **Actions** tab. The **Build QMK firmware** workflow
-   runs automatically on every push.
-4. When it finishes, download the compiled firmware:
-   - from the workflow run's **Artifacts**, or
-   - from the auto-created **Release** on the repo's main page.
-   The file is named like `sofle_rev1_webconfig.hex`.
+1. Push this repo to GitHub.
+2. Open the repo → **Actions** tab. The **Build QMK firmware** workflow runs on
+   every push.
+3. When it finishes, download the compiled firmware from the workflow run's
+   **Artifacts** or the auto-created **Release**. The file is named like
+   `sofle_rev1_webconfig.hex`.
 
 To rebuild after changing the keymap, just commit and push again.
 
@@ -55,43 +41,20 @@ To rebuild after changing the keymap, just commit and push again.
 
 1. Install [QMK Toolbox](https://github.com/qmk/qmk_toolbox/releases) (~15 MB).
 2. Open QMK Toolbox, select the downloaded `.hex`, set MCU to **atmega32u4**.
-3. Click **Flash**, then reset the keyboard half (double-tap the reset button,
-   or briefly bridge **RST** and **GND**). It will flash automatically.
-4. Repeat for the **other half** (reset the other side while Flash is armed).
+3. Enable **Auto-Flash**, then reset the keyboard half into the bootloader
+   (double-tap the reset button, or briefly bridge **RST** and **GND**).
+   Wait for `Validating... Success` / `Flash complete`.
+4. Disable Auto-Flash, unplug and replug the keyboard. Repeat for the other
+   half if you have it.
 
-> First-time flash of a VIA board: flashing this firmware **replaces VIA**.
-> Your layout is baked into `keymap.c`, so it is preserved — but you will no
-> longer edit keys through via.app (only the knob, via this web app).
+## Remapping keys
 
-## Using the web configurator
-
-1. Plug the keyboard in via USB.
-2. Open `web/index.html` in **Chrome** or **Edge** (WebHID required; Firefox and
-   Safari are not supported).
-3. Click **Connect keyboard** and select your Sofle.
-4. Set shortcuts for clockwise, counter-clockwise, and tap.
-5. Click **Save to keyboard**.
-
-> If opening the file directly (`file://`) blocks the module scripts, serve it:
-> ```bash
-> cd web && python -m http.server 8080
-> ```
-> then visit http://localhost:8080
-
-### Choosing shortcuts
-
-Each action supports:
-
-- **Modifier chips** — Ctrl, Shift, Alt, Win
-- **Key dropdown** — letters, navigation, F-keys, media/volume, symbols, mouse
-- **(disabled)** — turns that action off
-
-| Use case | Clockwise | Counter-clockwise | Tap |
-|----------|-----------|-------------------|-----|
-| Volume (default) | Volume Down | Volume Up | Mute |
-| Scroll | Mouse Wheel Down | Mouse Wheel Up | — |
-| Zoom | Ctrl + = | Ctrl + - | — |
-| Tabs | Ctrl + Tab | Ctrl + Shift + Tab | — |
+1. Open [usevia.app](https://usevia.app) in **Chrome** or **Edge**.
+2. **Authorize device** → select **Sofle v1** (VID `0xFC32`, PID `0x0287`).
+3. Click any key to reassign it. The knobs appear as rotary icons (`e0` left,
+   `e1` right) — click one to remap clockwise / counter-clockwise rotation.
+   The knob *press* is an ordinary key (just right of `B` on the left half).
+4. Changes are saved to the keyboard instantly.
 
 ## Project layout
 
@@ -100,14 +63,11 @@ Sofle/
 ├── .github/workflows/build_binaries.yaml   # GitHub Actions cloud build
 ├── qmk.json                                # userspace build target
 ├── keyboards/sofle/rev1/keymaps/webconfig/ # the QMK firmware
-│   ├── keymap.c      # layout + encoder logic + Raw HID protocol
-│   ├── config.h      # EEPROM size, tap delay
-│   └── rules.mk      # RAW_ENABLE = yes
-├── web/              # WebHID configurator (open index.html)
-│   ├── index.html
-│   ├── app.js
-│   ├── keycodes.js
-│   └── style.css
+│   ├── keymap.c      # layout + encoder map
+│   ├── config.h      # layer count, tap delay, USB device version
+│   └── rules.mk      # VIA_ENABLE / ENCODER_MAP_ENABLE / EXTRAKEY_ENABLE
+├── web/              # legacy custom WebHID configurator (pre-VIA firmware;
+│                     #   kept for reference, does NOT work with this keymap)
 └── README.md
 ```
 
@@ -116,10 +76,10 @@ Sofle/
 | Problem | Fix |
 |---------|-----|
 | Actions build fails | Check the run log; make sure `qmk.json` lists `["sofle/rev1", "webconfig"]` |
-| "WebHID is not available" | Use Chrome or Edge on desktop |
-| "No Sofle Raw HID interface found" | Flash the `webconfig` firmware first |
-| Web page can't connect | Unplug/replug USB; try another port |
-| Settings lost after reflash | Some flash steps clear EEPROM — just re-save from the web app |
+| usevia.app doesn't see the keyboard | Unplug/replug USB; use Chrome/Edge; make sure the VIA firmware is flashed (`Validating... Success`) |
+| Volume/brightness acts like mouse in some windows | Stale Windows HID cache — bump `DEVICE_VER` in `config.h`, reflash, replug |
+| Knob rotation missing in VIA | Firmware must be built with `ENCODER_MAP_ENABLE = yes` (this keymap has it) |
+| Flash doesn't apply | Pro Micro's bootloader window is ~8 s — use Auto-Flash and wait for `Validating... Success` |
 
 ## License
 

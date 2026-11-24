@@ -1,8 +1,12 @@
-# Raw HID interface used by the web configurator to read/write the encoder
-# actions over USB (WebHID).
-RAW_ENABLE = yes
+# VIA support: live remapping of every key in https://usevia.app.
+# Speaks the VIA protocol over Raw HID and stores the dynamic keymap in EEPROM.
+VIA_ENABLE = yes
 
-# Required so the encoder can emit consumer/media keys (volume, mute, play...).
+# Lets VIA remap encoder rotation (clockwise / counter-clockwise) from the UI
+# (the knob appears in the layout as an "e0" position).
+ENCODER_MAP_ENABLE = yes
+
+# Required so the keyboard can emit consumer/media keys (volume, mute, ...).
 EXTRAKEY_ENABLE = yes
 
 # On the atmega32u4 the keyboard, mouse, consumer and Raw HID reports share a
